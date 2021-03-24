@@ -1,4 +1,4 @@
-pragma solidity 0.8.3;
+pragma solidity 0.4.20;
 
 contract Casino {
 	address public owner;
@@ -24,10 +24,17 @@ contract Casino {
 		if(msg.sender == owner) selfdestruct(owner); 
 	}
 
+	function checkPlayerExists(address player) public view returns(bool) {
+		for(uint256 i = 0; i < players.length; i++) {
+			if(players[i] == player) return true;
+		}
+		return false;
+	}
+
 	function bet(uint256 numberSelected) public payable {
 		require(!checkPlayerExists(msg.sender));
 		require(numberSelected >= 1 && numberSelected <= 10);
-		require(msg.value) >= minimumBet;
+		require(msg.value >= minimumBet);
 
 		playerInfo[msg.sender].amountBet = msg.value;
 		playerInfo[msg.sender].numberSelected = numberSelected;
@@ -35,5 +42,39 @@ contract Casino {
 		players.push(msg.sender);
 		totalBet += msg.value;
 
+		if(numberOfBets >= maxAmountOfBets) generateNumberWinner();
+	}
+
+	function generateNumberWinner() public {
+		uint256 numberGenerated = block.number % 10 + 1; // Not actually secure..
+		distributePrizes(numberGenerated);
+	}
+
+	function distributePrizes(uint256 numberWinner) public {
+		address[100] memory winners;
+		uint256 count = 0;
+
+		for(uint256 i = 0; i < players.length; i++) {
+			address playerAddress = players[i];
+			if(playerInfo[playerAddress].numberSelected == numberWinner) {
+				winners[count] = playerAddress;
+				count++;
+			}
+			delete(playerInfo[playerAddress]);
+		}
+
+		players.length = 0;
+
+		uint256 winnerEtherAmount = totalBet / winners.length;
+
+		for(uint256 j = 0; j < count; j++) {
+			if(winners[j] != address(0)) {
+				winners[j].transfer(winnerEtherAmount);
+			}
+		}
 	}
 }
+
+
+
+
